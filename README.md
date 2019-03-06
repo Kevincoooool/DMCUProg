@@ -3,7 +3,7 @@
 
 to run this software, you need python2.7, pyqt4, enum34 and a usb backend (hidapi or pywinusb for windows, pyusb for linux, hidapi for mac)
 
-![](https://github.com/XIVN1987/MCUProgFast/blob/master/%E6%88%AA%E5%9B%BE.png)
+![](https://github.com/XIVN1987/MCUProgFast/blob/master/截图.jpg)
 
 Note: the software uses the following statement to find the debugger
 ``` python 
