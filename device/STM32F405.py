@@ -38,34 +38,34 @@ class STM32F405RG(object):
         elif addr < 1024 * 128:  return (addr - 1024 *  64) // (1024 *  64) + 4
         else:                    return (addr - 1024 * 128) // (1024 * 128) + 5
 
-    def __init__(self, cpu):
+    def __init__(self, dap):
         super(STM32F405RG, self).__init__()
         
-        self.cpu  = cpu
+        self.dap = dap
 
-        self.flash = Flash(self.cpu, STM32F405RG_flash_algo)
+        self.flash = Flash(self.dap, STM32F405RG_flash_algo)
 
     def unlock(self):
-        self.cpu.ap.write32(FLASH_KR, FLASH_KR_KEY1)
-        self.cpu.ap.write32(FLASH_KR, FLASH_KR_KEY2)
+        self.dap.ap.write32(FLASH_KR, FLASH_KR_KEY1)
+        self.dap.ap.write32(FLASH_KR, FLASH_KR_KEY2)
 
     def lock(self):
-        self.cpu.ap.write32(FLASH_CR, self.cpu.ap.read32(FLASH_CR) | FLASH_CR_LOCK)
+        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) | FLASH_CR_LOCK)
 
     def wait_ready(self):
-        while self.cpu.ap.read32(FLASH_SR) & FLASH_SR_BUSY:
+        while self.dap.ap.read32(FLASH_SR) & FLASH_SR_BUSY:
             pass
     
     def sect_erase(self, addr, size):
         self.unlock()
-        self.cpu.ap.write32(FLASH_CR, self.cpu.ap.read32(FLASH_CR) & FLASH_CR_PSIZE_MASK)
-        self.cpu.ap.write32(FLASH_CR, self.cpu.ap.read32(FLASH_CR) | FLASH_CR_PSIZE_WORD)
+        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) & FLASH_CR_PSIZE_MASK)
+        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) | FLASH_CR_PSIZE_WORD)
         for i in range(self.addr2sect(addr), self.addr2sect(addr + size)):
-            self.cpu.ap.write32(FLASH_CR, self.cpu.ap.read32(FLASH_CR) & FLASH_CR_SECT_MASK)
-            self.cpu.ap.write32(FLASH_CR, self.cpu.ap.read32(FLASH_CR) | FLASH_CR_SERASE | (i << 3))
-            self.cpu.ap.write32(FLASH_CR, self.cpu.ap.read32(FLASH_CR) | FLASH_CR_ESTART)
+            self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) & FLASH_CR_SECT_MASK)
+            self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) | FLASH_CR_SERASE | (i << 3))
+            self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) | FLASH_CR_ESTART)
             self.wait_ready()
-        self.cpu.ap.write32(FLASH_CR, self.cpu.ap.read32(FLASH_CR) &~FLASH_CR_SERASE)
+        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) &~FLASH_CR_SERASE)
         self.lock()
 
     def chip_write(self, addr, data):
@@ -80,7 +80,7 @@ class STM32F405RG(object):
         self.flash.UnInit(2)
         
     def chip_read(self, addr, size, buff):
-        data = self.cpu.ap.readBlockMemoryUnaligned8(addr, size)
+        data = self.dap.ap.readBlockMemoryUnaligned8(addr, size)
 
         buff.extend(data)
 

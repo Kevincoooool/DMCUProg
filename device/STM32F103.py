@@ -28,32 +28,32 @@ class STM32F103C8(object):
     SECT_SIZE = 1024 * 1
     CHIP_SIZE = 1024 * 64
 
-    def __init__(self, cpu):
+    def __init__(self, dap):
         super(STM32F103C8, self).__init__()
         
-        self.cpu = cpu
+        self.dap = dap
 
-        self.flash = Flash(self.cpu, STM32F103C8_flash_algo)
+        self.flash = Flash(self.dap, STM32F103C8_flash_algo)
 
     def unlock(self):
-        self.cpu.ap.write32(FLASH_KR, FLASH_KR_KEY1)
-        self.cpu.ap.write32(FLASH_KR, FLASH_KR_KEY2)
+        self.dap.ap.write32(FLASH_KR, FLASH_KR_KEY1)
+        self.dap.ap.write32(FLASH_KR, FLASH_KR_KEY2)
 
     def lock(self):
-        self.cpu.ap.write32(FLASH_CR, self.cpu.ap.read32(FLASH_CR) | FLASH_CR_LOCK)
+        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) | FLASH_CR_LOCK)
 
     def wait_ready(self):
-        while self.cpu.ap.read32(FLASH_SR) & FLASH_SR_BUSY:
+        while self.dap.ap.read32(FLASH_SR) & FLASH_SR_BUSY:
             time.sleep(0.001)
     
     def sect_erase(self, addr, size):
         self.unlock()
-        self.cpu.ap.write32(FLASH_CR, self.cpu.ap.read32(FLASH_CR) | FLASH_CR_SERASE)
+        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) | FLASH_CR_SERASE)
         for i in range(0, (size + self.SECT_SIZE - 1) // self.SECT_SIZE):
-            self.cpu.ap.write32(FLASH_AR, 0x08000000 + addr + self.SECT_SIZE * i)
-            self.cpu.ap.write32(FLASH_CR, self.cpu.ap.read32(FLASH_CR) | FLASH_CR_ESTART)
+            self.dap.ap.write32(FLASH_AR, 0x08000000 + addr + self.SECT_SIZE * i)
+            self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) | FLASH_CR_ESTART)
             self.wait_ready()
-        self.cpu.ap.write32(FLASH_CR, self.cpu.ap.read32(FLASH_CR) &~FLASH_CR_SERASE)
+        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) &~FLASH_CR_SERASE)
         self.lock()
 
     def chip_write(self, addr, data):
@@ -68,7 +68,7 @@ class STM32F103C8(object):
         self.flash.UnInit(2)
 
     def chip_read(self, addr, size, buff):
-        data = self.cpu.ap.readBlockMemoryUnaligned8(0x08000000 + addr, size)
+        data = self.dap.ap.readBlockMemoryUnaligned8(0x08000000 + addr, size)
         
         buff.extend(data)
 
@@ -78,10 +78,10 @@ class STM32F103RC(STM32F103C8):
     SECT_SIZE = 1024 * 2
     CHIP_SIZE = 1024 * 256
 
-    def __init__(self, cpu):
-        super(STM32F103RC, self).__init__(cpu)
+    def __init__(self, dap):
+        super(STM32F103RC, self).__init__(dap)
         
-        self.flash = Flash(self.cpu, STM32F103RC_flash_algo)
+        self.flash = Flash(self.dap, STM32F103RC_flash_algo)
 
 
 STM32F103C8_flash_algo = {

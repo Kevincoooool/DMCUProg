@@ -1,17 +1,17 @@
-#! C:\Python27\python.exe
+#! python2
 #coding: utf-8
 ''' 更改记录
 '''
 import os
 import sys
+import collections
 import ConfigParser
 
 import sip
 sip.setapi('QString', 2)
 from PyQt4 import QtCore, QtGui, uic
 
-from daplink import coresight
-from daplink import pyDAPAccess
+from daplink import coresight, pyDAPAccess
 
 import device
 
@@ -61,21 +61,21 @@ class MCUProg(QtGui.QWidget, Ui_MCUProg):
 
     @QtCore.pyqtSlot()
     def on_btnErase_clicked(self):
-        self.cpu = self.openDAP()
-        self.dev = device.Devices[self.cmbMCU.currentText()](self.cpu)
+        self.dap = self.openDAP()
+        self.dev = device.Devices[self.cmbMCU.currentText()](self.dap)
         self.dev.sect_erase(self.addr, self.size)
         QtGui.QMessageBox.information(self, u'擦除完成', u'        芯片擦除完成        ', QtGui.QMessageBox.Yes)
 
-        self.cpu.ap.write32(0xE000ED0C, (0x5FA << 16) | (1 << 2))    # NVIC_SystemReset()
-        self.cpu.dp.flush()
+        self.dap.ap.write32(0xE000ED0C, (0x5FA << 16) | (1 << 2))    # NVIC_SystemReset()
+        self.dap.dp.flush()
 
     @QtCore.pyqtSlot()
     def on_btnWrite_clicked(self):
-        if   self.cmbHEX.currentText()[-4:].lower() == '.bin': data = open(self.cmbHEX.currentText(), 'rb').read()
-        elif self.cmbHEX.currentText()[-4:].lower() == '.hex': data = parseHex(self.cmbHEX.currentText())
+        if self.cmbHEX.currentText().endswith('.hex'): data = parseHex(self.cmbHEX.currentText())
+        else:                                          data = open(self.cmbHEX.currentText(), 'rb').read()
 
-        self.cpu = self.openDAP()
-        self.dev = device.Devices[self.cmbMCU.currentText()](self.cpu)
+        self.dap = self.openDAP()
+        self.dev = device.Devices[self.cmbMCU.currentText()](self.dap)
 
         self.setEnabled(False)
         self.prgInfo.setVisible(True)
@@ -87,16 +87,16 @@ class MCUProg(QtGui.QWidget, Ui_MCUProg):
     def on_btnWrite_finished(self):
         QtGui.QMessageBox.information(self, u'烧写完成', u'        程序烧写完成        ', QtGui.QMessageBox.Yes)
 
-        self.cpu.ap.write32(0xE000ED0C, (0x5FA << 16) | (1 << 2))    # NVIC_SystemReset()
-        self.cpu.dp.flush()
+        self.dap.ap.write32(0xE000ED0C, (0x5FA << 16) | (1 << 2))    # NVIC_SystemReset()
+        self.dap.dp.flush()
 
         self.setEnabled(True)
         self.prgInfo.setVisible(False)
 
     @QtCore.pyqtSlot()
     def on_btnRead_clicked(self):
-        self.cpu = self.openDAP()
-        self.dev = device.Devices[self.cmbMCU.currentText()](self.cpu)
+        self.dap = self.openDAP()
+        self.dev = device.Devices[self.cmbMCU.currentText()](self.dap)
 
         self.setEnabled(False)
         self.prgInfo.setVisible(True)
@@ -112,8 +112,8 @@ class MCUProg(QtGui.QWidget, Ui_MCUProg):
             with open(path, 'wb') as f:
                 f.write(''.join([chr(x) for x in self.RdBuffer]))
 
-        self.cpu.ap.write32(0xE000ED0C, (0x5FA << 16) | (1 << 2))    # NVIC_SystemReset()
-        self.cpu.dp.flush()
+        self.dap.ap.write32(0xE000ED0C, (0x5FA << 16) | (1 << 2))    # NVIC_SystemReset()
+        self.dap.dp.flush()
         
         self.setEnabled(True)
         self.prgInfo.setVisible(False)
@@ -121,18 +121,18 @@ class MCUProg(QtGui.QWidget, Ui_MCUProg):
     def openDAP(self):
         self.daplink.open()
 
-        self.dp = coresight.dap.DebugPort(self.daplink)
-        self.dp.init()
-        self.dp.power_up_debug()
-        self.dp.set_clock(4000000)
+        dp = coresight.dap.DebugPort(self.daplink)
+        dp.init()
+        dp.power_up_debug()
+        dp.set_clock(4000000)
 
-        self.ap = coresight.ap.AHB_AP(self.dp, 0)
-        self.ap.init()
+        ap = coresight.ap.AHB_AP(dp, 0)
+        ap.init()
 
-        self.cpu = coresight.cortex_m.CortexM(self.daplink, self.dp, self.ap)
-        self.cpu.readCoreType()
+        dap = coresight.cortex_m.CortexM(self.daplink, dp, ap)
+        dap.readCoreType()
 
-        return self.cpu
+        return dap
     
     def on_tmrDAP_timeout(self):
         ''' 自动检测 DAPLink 的热插拔 '''
@@ -186,8 +186,10 @@ class MCUProg(QtGui.QWidget, Ui_MCUProg):
         self.conf.set('globals', 'mcu', self.cmbMCU.currentText())
         self.conf.set('globals', 'addr', self.cmbAddr.currentText())
         self.conf.set('globals', 'size', self.cmbSize.currentText())
-        self.conf.set('globals', 'hexpath', repr(([self.cmbHEX.currentText()] if self.cmbHEX.currentIndex() != 0 else []) 
-                                                + [self.cmbHEX.itemText(i) for i in range(min(9, self.cmbHEX.count()))]))
+        
+        hexpath = [self.cmbHEX.currentText()] + [self.cmbHEX.itemText(i) for i in range(self.cmbHEX.count())]
+        self.conf.set('globals', 'hexpath', list(collections.OrderedDict.fromkeys(hexpath)))    # 保留顺序去重   
+
         self.conf.write(open('setting.ini', 'w'))
 
 
