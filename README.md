@@ -1,4 +1,4 @@
-# MCUProgFast
+# DMCUProg
  MCU programmer using CMSIS-DAP (DAPLink), using Keil MDK's *.FLM Flashing Algorithm
 
 to run this software, you need python2.7, pyqt4, enum34 and a usb backend (hidapi or pywinusb for windows, pyusb for linux, hidapi for mac)
