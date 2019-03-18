@@ -44,26 +44,26 @@ class STM32F405RG(object):
         self.dap = dap
 
     def unlock(self):
-        self.dap.ap.write32(FLASH_KR, FLASH_KR_KEY1)
-        self.dap.ap.write32(FLASH_KR, FLASH_KR_KEY2)
+        self.dap.write32(FLASH_KR, FLASH_KR_KEY1)
+        self.dap.write32(FLASH_KR, FLASH_KR_KEY2)
 
     def lock(self):
-        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) | FLASH_CR_LOCK)
+        self.dap.write32(FLASH_CR, self.dap.read32(FLASH_CR) | FLASH_CR_LOCK)
 
     def wait_ready(self):
-        while self.dap.ap.read32(FLASH_SR) & FLASH_SR_BUSY:
+        while self.dap.read32(FLASH_SR) & FLASH_SR_BUSY:
             pass
     
     def sect_erase(self, addr, size):
         self.unlock()
-        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) & FLASH_CR_PSIZE_MASK)
-        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) | FLASH_CR_PSIZE_WORD)
+        self.dap.write32(FLASH_CR, self.dap.read32(FLASH_CR) & FLASH_CR_PSIZE_MASK)
+        self.dap.write32(FLASH_CR, self.dap.read32(FLASH_CR) | FLASH_CR_PSIZE_WORD)
         for i in range(self.addr2sect(addr), self.addr2sect(addr + size)):
-            self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) & FLASH_CR_SECT_MASK)
-            self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) | FLASH_CR_SERASE | (i << 3))
-            self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) | FLASH_CR_ESTART)
+            self.dap.write32(FLASH_CR, self.dap.read32(FLASH_CR) & FLASH_CR_SECT_MASK)
+            self.dap.write32(FLASH_CR, self.dap.read32(FLASH_CR) | FLASH_CR_SERASE | (i << 3))
+            self.dap.write32(FLASH_CR, self.dap.read32(FLASH_CR) | FLASH_CR_ESTART)
             self.wait_ready()
-        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) &~FLASH_CR_SERASE)
+        self.dap.write32(FLASH_CR, self.dap.read32(FLASH_CR) &~FLASH_CR_SERASE)
         self.lock()
 
     def chip_write(self, addr, data):
@@ -73,14 +73,14 @@ class STM32F405RG(object):
         self.sect_erase(addr, len(data))
 
         self.unlock()
-        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) | FLASH_CR_WRITE)
+        self.dap.write32(FLASH_CR, self.dap.read32(FLASH_CR) | FLASH_CR_WRITE)
         for i in range(len(data)//4):
-            self.dap.ap.write32(0x08000000 + addr + i*4, data[i*4] | (data[i*4+1] << 8) | (data[i*4+2] << 16) | (data[i*4+3] << 24))
+            self.dap.write32(0x08000000 + addr + i*4, data[i*4] | (data[i*4+1] << 8) | (data[i*4+2] << 16) | (data[i*4+3] << 24))
             self.wait_ready()
-        self.dap.ap.write32(FLASH_CR, self.dap.ap.read32(FLASH_CR) &~FLASH_CR_WRITE)
+        self.dap.write32(FLASH_CR, self.dap.read32(FLASH_CR) &~FLASH_CR_WRITE)
         self.lock()
         
     def chip_read(self, addr, size, buff):
-        data = self.dap.ap.readBlockMemoryUnaligned8(addr, size)
+        data = self.dap.read_memory_block8(addr, size)
 
         buff.extend(data)

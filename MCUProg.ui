@@ -49,7 +49,7 @@
       </widget>
      </item>
      <item>
-      <spacer name="hSpacer">
+      <spacer name="hSpacer11">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
        </property>
@@ -108,7 +108,7 @@
       </widget>
      </item>
      <item>
-      <spacer name="hSpacer2">
+      <spacer name="hSpacer12">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
        </property>
@@ -141,11 +141,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="linDAP">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-      </widget>
+      <widget class="QComboBox" name="cmbDAP"/>
      </item>
      <item>
       <widget class="QPushButton" name="btnDAP">
@@ -223,7 +219,7 @@
       </widget>
      </item>
      <item>
-      <spacer name="hSpacer3">
+      <spacer name="hSpacer41">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
        </property>

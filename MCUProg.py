@@ -1,9 +1,8 @@
 #! python2
 #coding: utf-8
-''' 更改记录
-'''
 import os
 import sys
+import logging
 import collections
 import ConfigParser
 
@@ -11,17 +10,16 @@ import sip
 sip.setapi('QString', 2)
 from PyQt4 import QtCore, QtGui, uic
 
-from daplink import coresight, pyDAPAccess
+from pyocd import coresight
+from pyocd.probe import aggregator
 
 import device
 
 
-'''
-class MCUProg(QtGui.QWidget):
-    def __init__(self, parent=None):
-        super(MCUProg, self).__init__(parent)
-        
-        uic.loadUi('MCUProg.ui', self)
+os.environ['PATH'] = os.path.dirname(os.path.abspath(__file__)) + os.pathsep + os.environ['PATH']
+
+
+
 '''
 from MCUProg_UI import Ui_MCUProg
 class MCUProg(QtGui.QWidget, Ui_MCUProg):
@@ -29,6 +27,12 @@ class MCUProg(QtGui.QWidget, Ui_MCUProg):
         super(MCUProg, self).__init__(parent)
         
         self.setupUi(self)
+'''
+class MCUProg(QtGui.QWidget):
+    def __init__(self, parent=None):
+        super(MCUProg, self).__init__(parent)
+        
+        uic.loadUi('MCUProg.ui', self)
 
         self.prgInfo.setVisible(False)
 
@@ -37,7 +41,7 @@ class MCUProg(QtGui.QWidget, Ui_MCUProg):
         self.daplink = None
 
         self.tmrDAP = QtCore.QTimer()
-        self.tmrDAP.setInterval(100)
+        self.tmrDAP.setInterval( 200)
         self.tmrDAP.timeout.connect(self.on_tmrDAP_timeout)
         self.tmrDAP.start()
 
@@ -56,7 +60,7 @@ class MCUProg(QtGui.QWidget, Ui_MCUProg):
             self.conf.set('globals', 'hexpath', '[]')
         self.cmbHEX.addItems(eval(self.conf.get('globals', 'hexpath')))
 
-        for dev in device.Devices: self.cmbMCU.addItem(dev)
+        self.cmbMCU.addItems(device.Devices.keys())
         self.cmbMCU.setCurrentIndex(self.cmbMCU.findText(self.conf.get('globals', 'mcu')))
 
     @QtCore.pyqtSlot()
@@ -66,8 +70,8 @@ class MCUProg(QtGui.QWidget, Ui_MCUProg):
         self.dev.sect_erase(self.addr, self.size)
         QtGui.QMessageBox.information(self, u'擦除完成', u'        芯片擦除完成        ', QtGui.QMessageBox.Yes)
 
-        self.dap.ap.write32(0xE000ED0C, (0x5FA << 16) | (1 << 2))    # NVIC_SystemReset()
-        self.dap.dp.flush()
+        self.dap.reset()
+        self.daplink.close()
 
     @QtCore.pyqtSlot()
     def on_btnWrite_clicked(self):
@@ -87,8 +91,8 @@ class MCUProg(QtGui.QWidget, Ui_MCUProg):
     def on_btnWrite_finished(self):
         QtGui.QMessageBox.information(self, u'烧写完成', u'        程序烧写完成        ', QtGui.QMessageBox.Yes)
 
-        self.dap.ap.write32(0xE000ED0C, (0x5FA << 16) | (1 << 2))    # NVIC_SystemReset()
-        self.dap.dp.flush()
+        self.dap.reset()
+        self.daplink.close()
 
         self.setEnabled(True)
         self.prgInfo.setVisible(False)
@@ -112,44 +116,40 @@ class MCUProg(QtGui.QWidget, Ui_MCUProg):
             with open(path, 'wb') as f:
                 f.write(''.join([chr(x) for x in self.RdBuffer]))
 
-        self.dap.ap.write32(0xE000ED0C, (0x5FA << 16) | (1 << 2))    # NVIC_SystemReset()
-        self.dap.dp.flush()
+        self.dap.reset()
+        self.daplink.close()
         
         self.setEnabled(True)
         self.prgInfo.setVisible(False)
 
     def openDAP(self):
+        self.daplink = self.daplinks[self.cmbDAP.currentText()]
         self.daplink.open()
 
-        dp = coresight.dap.DebugPort(self.daplink)
+        dp = coresight.dap.DebugPort(self.daplink, None)
         dp.init()
         dp.power_up_debug()
-        dp.set_clock(4000000)
 
         ap = coresight.ap.AHB_AP(dp, 0)
         ap.init()
 
-        dap = coresight.cortex_m.CortexM(self.daplink, dp, ap)
-        dap.readCoreType()
+        dap = coresight.cortex_m.CortexM(None, ap)
 
         return dap
     
     def on_tmrDAP_timeout(self):
         ''' 自动检测 DAPLink 的热插拔 '''
-        daplinks = pyDAPAccess.DAPAccess.get_connected_devices()
+        daplinks = aggregator.DebugProbeAggregator.get_all_connected_probes()
         
-        if self.daplink and (daplinks == []):   # daplink被拔下
-            try:
-                self.daplink.close()
-            except Exception as e:
-                print e
-            finally:
-                self.daplink = None
-                self.linDAP.clear()
+        if len(daplinks) != self.cmbDAP.count():
+            self.cmbDAP.clear()
+            for daplink in daplinks:
+                self.cmbDAP.addItem(daplink.product_name)
+        
+            self.daplinks = collections.OrderedDict([(daplink.product_name, daplink) for daplink in daplinks])
 
-        if not self.daplink and daplinks != []:
-            self.daplink = daplinks[0]
-            self.linDAP.setText(self.daplink._product_name)
+            if self.daplink and self.daplink.product_name in self.daplinks:
+                self.cmbDAP.setCurrentIndex(self.daplinks.keys().index(self.daplink.product_name))
 
     @property
     def addr(self):
@@ -188,7 +188,7 @@ class MCUProg(QtGui.QWidget, Ui_MCUProg):
         self.conf.set('globals', 'size', self.cmbSize.currentText())
         
         hexpath = [self.cmbHEX.currentText()] + [self.cmbHEX.itemText(i) for i in range(self.cmbHEX.count())]
-        self.conf.set('globals', 'hexpath', list(collections.OrderedDict.fromkeys(hexpath)))    # 保留顺序去重   
+        self.conf.set('globals', 'hexpath', list(collections.OrderedDict.fromkeys(hexpath)))    # 保留顺序去重    
 
         self.conf.write(open('setting.ini', 'w'))
 
