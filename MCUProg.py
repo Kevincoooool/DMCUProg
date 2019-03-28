@@ -19,7 +19,6 @@ import device
 os.environ['PATH'] = os.path.dirname(os.path.abspath(__file__)) + os.pathsep + os.environ['PATH']
 
 
-
 '''
 from MCUProg_UI import Ui_MCUProg
 class MCUProg(QtGui.QWidget, Ui_MCUProg):
@@ -67,11 +66,14 @@ class MCUProg(QtGui.QWidget):
     def on_btnErase_clicked(self):
         self.dap = self.openDAP()
         self.dev = device.Devices[self.cmbMCU.currentText()](self.dap)
+
+        self.setEnabled(False)
         self.dev.sect_erase(self.addr, self.size)
         QtGui.QMessageBox.information(self, u'擦除完成', u'        芯片擦除完成        ', QtGui.QMessageBox.Yes)
 
         self.dap.reset()
         self.daplink.close()
+        self.setEnabled(True)
 
     @QtCore.pyqtSlot()
     def on_btnWrite_clicked(self):
@@ -139,17 +141,18 @@ class MCUProg(QtGui.QWidget):
     
     def on_tmrDAP_timeout(self):
         ''' 自动检测 DAPLink 的热插拔 '''
-        daplinks = aggregator.DebugProbeAggregator.get_all_connected_probes()
-        
-        if len(daplinks) != self.cmbDAP.count():
-            self.cmbDAP.clear()
-            for daplink in daplinks:
-                self.cmbDAP.addItem(daplink.product_name)
-        
-            self.daplinks = collections.OrderedDict([(daplink.product_name, daplink) for daplink in daplinks])
+        if self.isEnabled():
+            daplinks = aggregator.DebugProbeAggregator.get_all_connected_probes()
+            
+            if len(daplinks) != self.cmbDAP.count():
+                self.cmbDAP.clear()
+                for daplink in daplinks:
+                    self.cmbDAP.addItem(daplink.product_name)
+            
+                self.daplinks = collections.OrderedDict([(daplink.product_name, daplink) for daplink in daplinks])
 
-            if self.daplink and self.daplink.product_name in self.daplinks:
-                self.cmbDAP.setCurrentIndex(self.daplinks.keys().index(self.daplink.product_name))
+                if self.daplink and self.daplink.product_name in self.daplinks:
+                    self.cmbDAP.setCurrentIndex(self.daplinks.keys().index(self.daplink.product_name))
 
     @property
     def addr(self):
