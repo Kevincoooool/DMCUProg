@@ -1,4 +1,3 @@
-#coding: utf-8
 import time
 
 
@@ -67,9 +66,6 @@ class STM32F405RG(object):
         self.lock()
 
     def chip_write(self, addr, data):
-        if len(data)%self.PAGE_SIZE:
-            data = data + [0xFF] * (self.PAGE_SIZE - len(data)%self.PAGE_SIZE)
-
         self.sect_erase(addr, len(data))
 
         self.unlock()

@@ -1,4 +1,3 @@
-#coding: utf-8
 from .flash import Flash
 
 class STM32F405RG(object):
@@ -35,9 +34,6 @@ class STM32F405RG(object):
         self.flash.UnInit(1)
 
     def chip_write(self, addr, data):
-        if len(data)%self.PAGE_SIZE:
-            data = data + [0xFF] * (self.PAGE_SIZE - len(data)%self.PAGE_SIZE)
-
         self.sect_erase(addr, len(data))
 
         self.flash.Init(0, 0, 2)
