@@ -1,7 +1,7 @@
 # DMCUProg
 MCU programmer for DAPLink (CMSIS-DAP), using Keil MDK's *.FLM Flashing Algorithm
 
-to run this software, you need python 3.6, pyqt5 and a usb backend (hidapi or pywinusb for windows, pyusb for linux, hidapi for mac)
+to run this software, you need python 3.6, pyqt5, pyusb for CMSIS-DAPv2 and another usb-backend for CMSIS-DAPv1 (hidapi or pywinusb for windows, hidapi for mac, pyusb for linux)
 
 ![](https://github.com/XIVN1987/MCUProgFast/blob/master/截屏.jpg)
 
